@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peta Distribusi TB Terkonfirmasi - Sumenep</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+>
+<style>
+  :root{--navy:#173451;--blue:#21659b;--teal:#168c8c;--orange:#e9953b;--red:#c94d4d;--bg:#f3f7fa}
+  *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#23384a}
+  header{background:linear-gradient(115deg,#173451,#21659b);color:#fff;padding:20px 24px;display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  h1{font-size:clamp(20px,3vw,30px);margin:0 0 6px} .sub{opacity:.86;font-size:14px}
+  .total{background:#168c8c;border-radius:14px;padding:12px 20px;text-align:center;min-width:150px}
+  .total strong{display:block;font-size:30px}.total span{font-size:11px;font-weight:bold;letter-spacing:.8px}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;padding:14px;max-width:1600px;margin:auto}
+  #map{height:calc(100vh - 175px);min-height:520px;border-radius:14px;border:1px solid #d6e0e8;box-shadow:0 4px 16px #1c355010}
+  aside{background:#fff;border:1px solid #d6e0e8;border-radius:14px;padding:16px;overflow:auto;max-height:calc(100vh - 175px)}
+  h2{font-size:15px;color:var(--navy);margin:0 0 12px}
+  .legend{display:grid;gap:8px;margin:10px 0 18px}.legend-row{display:flex;align-items:center;gap:8px;font-size:12px}
+  .dot{width:13px;height:13px;border-radius:50%;display:inline-block}
+  .list{display:grid;gap:6px}.item{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #edf1f4;padding:8px 0;font-size:13px}
+  .item button{border:0;background:#edf5fa;color:#17496c;border-radius:7px;padding:6px 8px;cursor:pointer;font-weight:bold}
+  .item button:hover{background:#d9ebf7}
+  .note{font-size:11px;line-height:1.5;color:#687c8c;margin-top:14px;background:#f6f9fb;padding:10px;border-radius:8px}
+  .bubble-label{font-weight:bold;color:white;text-shadow:0 1px 2px #0007;text-align:center}
+  .pkm-label{background:rgba(255,255,255,.92);border:1px solid #cbd8e2;border-radius:4px;box-shadow:0 1px 4px #18324a22;color:#173451;font-size:10px;font-weight:bold;padding:2px 5px}.pkm-label:before{display:none}.leaflet-popup-content{line-height:1.55}.popup-title{font-weight:bold;color:#173451;font-size:14px}.popup-number{font-size:22px;font-weight:bold;color:#21659b}
+  footer{padding:0 18px 16px;color:#708392;font-size:11px}
+  @media(max-width:900px){main{grid-template-columns:1fr}#map{height:65vh;min-height:420px}aside{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Peta Distribusi TB Terkonfirmasi</h1><div class="sub">Kabupaten Sumenep • Rekap 23 Puskesmas</div></div>
+  <div class="total"><strong>618</strong><span>KASUS TERKONFIRMASI</span></div>
+</header>
+<main>
+  <div id="map" aria-label="Peta interaktif Puskesmas"><div style="padding:18px;color:#173451">Memuat peta… Jika pesan ini tidak hilang, periksa koneksi internet atau akses ke CDN Leaflet.</div></div>
+    <div id="map-warning" style="display:none;margin-top:8px;padding:8px 10px;background:#fff1df;color:#82511c;border-radius:8px;font-size:12px">Peta dasar tidak berhasil dimuat dari penyedia tile. Coba jaringan lain atau izinkan akses ke server.arcgisonline.com. Titik tetap dapat digunakan.</div>
+  <aside>
+    <h2>Legenda jumlah kasus</h2>
+    <div class="legend">
+      <div class="legend-row"><i class="dot" style="background:#c94d4d"></i> 50 kasus atau lebih</div>
+      <div class="legend-row"><i class="dot" style="background:#e9953b"></i> 35–49 kasus</div>
+      <div class="legend-row"><i class="dot" style="background:#168c8c"></i> 20–34 kasus</div>
+      <div class="legend-row"><i class="dot" style="background:#21659b"></i> Di bawah 20 kasus</div>
+    </div>
+    <h2>Daftar Puskesmas</h2>
+    <button id="show-all" style="width:100%;margin:0 0 8px;border:0;border-radius:8px;background:#173451;color:#fff;padding:9px;cursor:pointer;font-weight:bold">Tampilkan semua lokasi (termasuk Arjasa)</button>
+    <div class="list" id="facility-list"></div>
+    <div class="note"><b>Penting:</b> titik koordinat awal pada kode ini merupakan titik referensi/pendekatan untuk membantu menyiapkan peta, bukan hasil verifikasi lapangan. Sebelum dipakai sebagai peta resmi, periksa posisi tiap Puskesmas di Google Maps dan ganti nilai <code>lat</code> serta <code>lng</code> pada daftar data di dalam kode. Peta memerlukan internet untuk memuat peta dasar.</div>
+  </aside>
+</main>
+<footer>Peta jalan © Esri dan kontributor data. Peta dasar memerlukan internet. Data kasus: rekap yang diberikan pengguna; jumlah kasus bukan angka prevalensi penduduk.</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+<script>
+/*
+  DATA PUSKESMAS:
+  Ubah lat dan lng setelah verifikasi lokasi resmi.
+  Format: {name:"Nama Puskesmas", cases:jumlah, lat:lintang, lng:bujur}
+*/
+if (typeof L === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:24px;font:16px Arial;color:#173451"><b>Peta belum termuat.</b><br>Leaflet gagal dimuat dari internet. Pastikan koneksi aktif, lalu buka ulang file ini. Jika masih gagal, coba jaringan lain.</div>';
+  throw new Error('Leaflet library failed to load. Check internet/CDN access.');
+}
+const facilities = [
+ {name:"Ambunten",cases:34,lat:-6.88655,lng:113.737335},
+ {name:"Arjasa",cases:38,lat:-7.013226,lng:115.682151},
+ {name:"Batang Batang",cases:57,lat:-6.947131,lng:113.997402},
+ {name:"Batu Putih Sumenep",cases:16,lat:-6.877773,lng:113.925819},
+ {name:"Batuan",cases:8,lat:-7.0115965,lng:113.825108},
+ {name:"Bluto",cases:18,lat:-7.0750,lng:113.8100},
+ {name:"Dasuk",cases:33,lat:-6.903448,lng:113.814937},
+ {name:"Dungkek",cases:5,lat:-6.978164,lng:114.092031},
+ {name:"Ganding",cases:1,lat:-7.037179,lng:113.689957},
+ {name:"Gapura",cases:8,lat:-6.996481,lng:113.952255},
+ {name:"Guluk-guluk",cases:33,lat:-7.056771,lng:113.678627},
+ {name:"Kalianget",cases:20,lat:-7.038974,lng:113.895321},
+ {name:"Legung Timur",cases:9,lat:-6.901589,lng:114.019032},
+ {name:"Lenteng",cases:35,lat:-7.031821,lng:113.780272},
+ {name:"Manding Sumenep",cases:56,lat:-6.953777,lng:113.870888},
+ {name:"Moncek Tengah",cases:7,lat:-7.065034,lng:113.741283},
+ {name:"Pamolokan",cases:23,lat:-7.001520,lng:113.869976},
+ {name:"Pandian",cases:27,lat:-7.004742,lng:113.849327},
+ {name:"Pasongsongan",cases:69,lat:-6.889788,lng:113.650475},
+ {name:"Pragaan",cases:35,lat:-7.1700,lng:113.6500},
+ {name:"Rubaru",cases:37,lat:-6.957866,lng:113.751926},
+ {name:"Saronggi",cases:32,lat:-7.0900,lng:113.8300},
+ {name:"Talango",cases:17,lat:-7.082154,lng:113.972168}
+];
+
+const map = L.map('map', {scrollWheelZoom:true}).setView([-7.02,113.92], 10);
+// Basemap Esri World Street Map: peta jalan tanpa API key.
+const baseLayer = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+  {
+    maxZoom:19,
+    attribution:'Tiles &copy; Esri — Sources: Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community'
+  }
+);
+baseLayer.addTo(map);
+baseLayer.on('tileerror', function(){
+  document.getElementById('map-warning').style.display = 'block';
+});
+
+function colorFor(n){return n>=50?'#c94d4d':n>=35?'#e9953b':n>=20?'#168c8c':'#21659b'}
+function radiusFor(n){return 9 + Math.sqrt(n)*1.25}
+const markers = {};
+facilities.forEach(f=>{
+  const circle = L.circleMarker([f.lat,f.lng],{
+    radius:radiusFor(f.cases), color:'#fff', weight:2,
+    fillColor:colorFor(f.cases), fillOpacity:.92
+  }).addTo(map);
+  // Label nama terlihat; klik titik untuk detail jumlah kasus.
+  circle.bindTooltip(f.name, {permanent:true, direction:'right', className:'pkm-label', offset:[9,0]});
+  circle.bindPopup(`<div class="popup-title">Puskesmas ${f.name}</div><div>TB terkonfirmasi</div><div class="popup-number">${f.cases} kasus</div><div>${(f.cases/618*100).toFixed(1)}% dari total 618 kasus</div>`);
+  markers[f.name]=circle;
+});
+const list = document.getElementById('facility-list');
+[...facilities].sort((a,b)=>b.cases-a.cases).forEach(f=>{
+  const row=document.createElement('div'); row.className='item';
+  const name=document.createElement('span'); name.textContent=f.name;
+  const btn=document.createElement('button'); btn.textContent=`${f.cases} kasus`;
+  btn.title=`Tampilkan Puskesmas ${f.name} di peta`;
+  btn.addEventListener('click',()=>{map.flyTo([f.lat,f.lng],13,{duration:.7});markers[f.name].openPopup();});
+  row.append(name,btn);list.appendChild(row);
+});
+// Tampilan awal fokus ke daratan utama agar titik tidak tampak terlalu berjauhan.
+const mainland = facilities.filter(f => f.name !== 'Arjasa');
+map.fitBounds(L.latLngBounds(mainland.map(f=>[f.lat,f.lng])).pad(.12));
+document.getElementById('show-all').addEventListener('click',()=>{
+  map.fitBounds(L.latLngBounds(facilities.map(f=>[f.lat,f.lng])).pad(.12));
+});
+</script>
+</body>
+</html>
